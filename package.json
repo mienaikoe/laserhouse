@@ -5,9 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "dev": "node server/index.js",
-    "start": "node server/index.js",
-    "build": "browserify client/index.js -o client/bundle.js",
+    "dev": "parallelshell \"npm run dev-client\" \"npm run dev-server\"",
+    "start": "node server server/index.js",
+    "dev-client": "nodemon --ignore client/bundle.js --exec \"npm run build-client\" client/index.js",
+    "dev-server": "nodemon server/index.js",
+    "build-client": "browserify --transform [ sveltify --extensions [.htmlz .svelte] ] client/index.js --outfile client/bundle.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -21,8 +23,14 @@
   },
   "homepage": "https://github.com/mienaikoe/laserhouse#readme",
   "dependencies": {
-    "browserify": "^17.0.1",
     "http": "^0.0.1-security",
-    "makerjs": "^0.18.1"
+    "makerjs": "^0.18.1",
+    "svelte": "^5.36.17"
+  },
+  "devDependencies": {
+    "browserify": "^17.0.1",
+    "nodemon": "^3.1.10",
+    "parallelshell": "^3.0.1",
+    "sveltify": "^3.0.0"
   }
 }
