@@ -7,6 +7,7 @@
 
   const floor = getContext('floor') as Floor;
 
+  let type = $state(feature?.type || 'cut'); // default to 'cut' if not provided
   let originX = $state(feature?.origin[0]);
   let originY = $state(feature?.origin[1]);
   let width = $state(feature?.width);
@@ -14,7 +15,8 @@
 
   $effect(() => {
     floor.walls[wallIndex].features[index] = {
-      origin: [originX || 0, originY || 0],
+      type,
+      origin: [Number(originX || 0), Number(originY || 0)],
       width: width || 0,
       height: height || 0,
     };
@@ -28,6 +30,15 @@
     Feature {index + 1}
   </h6>
   <div class="flex flex-col items-center gap-2">
+    <div class="flex flex-row flex-1 w-full gap-2">
+      <div class="flex flex-col flex-1 w-[50%]">
+        <label for={`feature-${index}-type`} class="text-sm">Type</label>
+        <select id={`feature-${index}-type`} bind:value={type}>
+          <option value="cut">Cut</option>
+          <option value="engrave">Engrave</option>
+        </select>
+      </div>
+    </div>
     <div class="flex flex-row flex-1 w-full gap-2">
       <div class="flex flex-col flex-1 w-[50%]">
       <label for={`feature-${index}-x`} class="text-sm">X </label>

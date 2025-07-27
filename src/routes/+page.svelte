@@ -1,7 +1,9 @@
 <script lang="ts">
 	import type { Floor, Hitbox, Point } from  '../lib/types.ts';
   import FloorForm from '../components/FloorForm.svelte';
-    import { setContext } from 'svelte';
+  import SVGWall from '../components/SVGWall.svelte';
+  import SVGFloor from '../components/SVGFloor.svelte';
+  import { setContext } from 'svelte';
 
   const LASER_PADDING = 5; // mm
 
@@ -125,40 +127,10 @@
       <g transform={`translate(${LASER_PADDING}, ${LASER_PADDING})`}>
         {#each hitboxes as hitbox}
           {#if hitbox.type === 'wall'}
-            <rect
-              x={hitbox.origin[0]}
-              y={hitbox.origin[1]}
-              width={hitbox.width}
-              height={hitbox.height}
-              stroke="black"
-              stroke-width="1"
-              fill="none"
-            />
+            <SVGWall wall={hitbox.panel} 
+              hitbox={hitbox} />
           {:else if hitbox.type === 'floor'}
-            {#each hitbox.panel.walls as wall, wallIndex}
-              <line
-                x1={wall.point1[0] + hitbox.origin[0]}
-                y1={wall.point1[1] + hitbox.origin[1]}
-                x2={wall.point2[0] + hitbox.origin[0]}
-                y2={wall.point2[1] + hitbox.origin[1]}
-                stroke="black"
-                stroke-width="1"
-              />
-            {/each}
-          {/if}
-          
-          {#if hitbox.panel?.features}
-            {#each hitbox.panel.features as feature, featureIndex}
-              <rect
-                x={hitbox.origin[0] + feature.origin[0]}
-                y={hitbox.origin[1] + feature.origin[1]}
-                width={feature.width}
-                height={feature.height}
-                stroke="black"
-                stroke-width="1"
-                fill="none"
-              />
-            {/each}
+            <SVGFloor hitbox={hitbox} />
           {/if}
         {/each}
       </g>

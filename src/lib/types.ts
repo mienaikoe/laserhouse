@@ -1,6 +1,7 @@
 export type Point = [number, number];
 
 export interface Feature {
+  type: "cut" | "engrave";
   origin: Point;
   width: number; // in mm
   height: number; // in mm

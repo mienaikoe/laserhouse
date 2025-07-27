@@ -29,6 +29,7 @@
   const addFeature = () => {
     // Logic to add a new feature to the wall
     features = [...features, {
+      type: "cut",
       origin: [0, 0],
       width: 10,
       height: 10,
