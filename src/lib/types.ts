@@ -1,7 +1,4 @@
-export interface Point {
-  x: number; // in mm
-  y: number; // in mm
-}
+export type Point = [number, number];
 
 export interface Feature {
   origin: Point;
@@ -22,4 +19,13 @@ export interface Floor {
   materialThickness: number; // in mm
   walls: Wall[];
   pageWidth: number; // in mm
+  pageHeight: number; // in mm
+}
+
+export interface Hitbox {
+  origin: Point;
+  width: number; // in mm
+  height: number; // in mm
+  panel: Wall | Floor;
+  type: 'wall' | 'floor';
 }
