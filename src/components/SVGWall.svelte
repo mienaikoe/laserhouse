@@ -1,89 +1,123 @@
 <script lang="ts">
     import type { Floor, Point } from "$lib/types.js";
     import { getContext } from "svelte";
+    import paper from "paper";
 
     const { hitbox, wall } = $props();
 
-    const floor = getContext('floor') as Floor;
+    let getFloor = getContext("floor") as () => Floor;
+    let floor = getFloor();
 
     const JOINT_INCREMENT = 10; // mm
 
-    const lines: [Point, Point][] = [];
-
-    const origin = hitbox.origin;
     const width = hitbox.width;
     const height = hitbox.height;
+    const { materialThickness } = floor || { materialThickness: 0 };
 
-    // Top line (from 0,0 to width,0)
-    // does not interlock!
-    lines.push([
-        [0, 0],
-        [width, 0]
-    ]);
-    // Right line (from width,0 to width,height)
-    for( let i = 0; i * JOINT_INCREMENT < height; i++) {
-        const y1 = i * JOINT_INCREMENT;
-        const y2 = (i + 1) * JOINT_INCREMENT;
-        const isCutIn = i % 2 === 0; // alternate between cut in and cut out
-        const x = width - (isCutIn ? floor.materialThickness : 0); // cut in at
-        lines.push([
-            [x, y1],
-            [x, y2]
-        ]);
-        if( y2 < height) {
-            lines.push([
-                [x, y2],
-                [x + (isCutIn ? floor.materialThickness : -floor.materialThickness), y2]
-            ]);
+    paper.setup(new paper.Size(floor?.pageWidth || 0, floor?.pageHeight || 0));
+
+    const basePolygon = new paper.Path();
+    let cutPolygon: paper.PathItem | undefined = $state(undefined);
+    const jointTabs: paper.Path[] = [];
+
+    basePolygon.add(new paper.Point(0, 0));
+    basePolygon.add(new paper.Point(width, 0));
+    basePolygon.add(new paper.Point(width, height));
+    basePolygon.add(new paper.Point(0, height));
+    basePolygon.add(new paper.Point(0, 0));
+
+    basePolygon.curves.forEach((side, idx) => {
+        const { point1, point2 } = side;
+
+        const wallWidth = Math.sqrt(
+            Math.pow(point2.x - point1.x, 2) + Math.pow(point2.y - point1.y, 2),
+        );
+        const unitVector = new paper.Point(
+            (point2.x - point1.x) / wallWidth,
+            (point2.y - point1.y) / wallWidth,
+        );
+        const orthoClockVector = new paper.Point(unitVector.y, -unitVector.x);
+        const orthoCounterVector = new paper.Point(-unitVector.y, unitVector.x);
+        for (
+            let tabCrawler = 0;
+            tabCrawler * JOINT_INCREMENT < wallWidth;
+            tabCrawler += 2
+        ) {
+            const x = point1.x + tabCrawler * JOINT_INCREMENT * unitVector.x;
+            const y = point1.y + tabCrawler * JOINT_INCREMENT * unitVector.y;
+
+            const jointTab = new paper.Path();
+            jointTab.add(new paper.Point(x, y));
+            jointTab.add(
+                new paper.Point(
+                    Math.max(0, x + orthoClockVector.x * materialThickness),
+                    Math.max(0, y + orthoClockVector.y * materialThickness),
+                ),
+            );
+            jointTab.add(
+                // up the length of the joint
+                new paper.Point(
+                    Math.max(
+                        0,
+                        x +
+                            orthoClockVector.x * materialThickness +
+                            unitVector.x * JOINT_INCREMENT,
+                    ),
+                    Math.max(
+                        0,
+                        y +
+                            orthoClockVector.y * materialThickness +
+                            unitVector.y * JOINT_INCREMENT,
+                    ),
+                ),
+            );
+            jointTab.add(
+                // the far cap of the joint rectangle
+                new paper.Point(
+                    Math.max(
+                        0,
+                        x +
+                            unitVector.x * JOINT_INCREMENT +
+                            orthoCounterVector.x * materialThickness,
+                    ),
+                    Math.max(
+                        0,
+                        y +
+                            unitVector.y * JOINT_INCREMENT +
+                            orthoCounterVector.y * materialThickness,
+                    ),
+                ),
+            );
+            jointTab.add(
+                // down the length of the joint
+                new paper.Point(
+                    Math.max(0, x + orthoCounterVector.x * materialThickness),
+                    Math.max(0, y + orthoCounterVector.y * materialThickness),
+                ),
+            );
+            jointTab.add(
+                // back to the start point
+                new paper.Point(x, y),
+            );
+            jointTab.closed = true;
+            jointTabs.push(jointTab);
         }
-    }
-    // Bottom line (from width,height to 0,height)
-    for( let i = 0; i * JOINT_INCREMENT < width; i++) {
-        const x1 = i * JOINT_INCREMENT;
-        const x2 = (i + 1) * JOINT_INCREMENT;
-        const isCutIn = i % 2 === 0; // alternate between cut in and cut out
-        const y = height - (isCutIn ? floor.materialThickness : 0); // cut in at
-        lines.push([
-            [x1, y],
-            [x2, y]
-        ]);
-        if( x2 < width) {
-            lines.push([
-                [x2, y],
-                [x2, y + (isCutIn ? floor.materialThickness : -floor.materialThickness)]
-            ]);
-        }
-    }
-    // Left line (from 0,height to 0,0)
-    // uses staggered cuts to create a zig-zag pattern
-    for( let i = 0; i * JOINT_INCREMENT < height; i++) {
-        const y1 = i * JOINT_INCREMENT;
-        const y2 = (i + 1) * JOINT_INCREMENT;
-        const isCutIn = i % 2 === 1; // alternate between cut in and cut out
-        const x = isCutIn ? floor.materialThickness : 0; // cut in at
-        lines.push([
-            [x, y1],
-            [x, y2]
-        ]);
-        if( y2 < height) {
-            lines.push([
-                [x, y2],
-                [x + (isCutIn ? -floor.materialThickness : floor.materialThickness), y2]
-            ]);
-        }
-    }
+        cutPolygon = basePolygon.clone();
+        jointTabs.forEach((tab, idx) => {
+            cutPolygon = cutPolygon?.subtract(tab);
+        });
+    });
 </script>
 
-
 <g transform={`translate(${hitbox.origin[0]}, ${hitbox.origin[1]})`}>
-    {#each lines as pointPair}
-        <line 
-            x1={pointPair[0][0]} y1={pointPair[0][1]} 
-            x2={pointPair[1][0]} y2={pointPair[1][1]} 
-            stroke="black" 
-            stroke-width="1" 
+    {#if cutPolygon}
+        <path
+            d={cutPolygon.pathData}
+            fill="none"
+            stroke="black"
+            stroke-width="1"
         />
-    {/each}
+    {/if}
     {#if hitbox.panel?.features}
         {#each hitbox.panel.features as feature}
             <rect
@@ -91,11 +125,10 @@
                 y={feature.origin[1]}
                 width={feature.width}
                 height={feature.height}
-                stroke={feature.type === 'cut' ? 'black' : 'magenta'}
+                stroke={feature.type === "cut" ? "black" : "magenta"}
                 stroke-width="1"
                 fill="none"
             />
         {/each}
     {/if}
 </g>
-

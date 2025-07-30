@@ -52,5 +52,8 @@
 	},
 	"keywords": [
 		"svelte"
-	]
+	],
+	"dependencies": {
+		"paper": "^0.12.18"
+	}
 }

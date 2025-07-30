@@ -1,98 +1,106 @@
 <script lang="ts">
     import type { Floor, Point } from "$lib/types.js";
     import { getContext } from "svelte";
+    import paper from "paper";
 
     const { hitbox } = $props();
 
-    const floor = getContext('floor') as Floor;
+    let getFloor = getContext("floor") as () => Floor;
+    let floor = getFloor();
 
     const JOINT_INCREMENT = 10; // mm
 
-    const lines: [Point, Point][] = [];
+    paper.setup(new paper.Size(floor?.pageWidth || 0, floor?.pageHeight || 0));
 
-    const horizontalLine = (xStart: number, xEnd: number, yStart: number) => {
-        for( let i = 0; i * JOINT_INCREMENT < xEnd; i++) {
-            const x1 = xStart + (i * JOINT_INCREMENT);
-            const x2 = xStart + ((i + 1) * JOINT_INCREMENT);
-            const isCutIn = i % 2 === 0; // alternate between cut in and cut out
-            const y = yStart + (isCutIn ? floor.materialThickness : 0); // cut in at
-            lines.push([
-                [x1, y],
-                [x2, y]
-            ]);
-            if( x2 < xEnd ) {
-                lines.push([
-                    [x2, y],
-                    [x2, y + (isCutIn ? -floor.materialThickness : floor.materialThickness)]
-                ]);
-            } 
-            if( x1 === xStart && isCutIn) {
-                lines.push([
-                    [x1, y],
-                    [x1, y -floor.materialThickness]
-                ]);
-            }
-        }
-    }
-
-    const verticalLine = (yStart: number, yEnd: number, xStart: number) => {
-        for( let i = 0; i * JOINT_INCREMENT < yEnd; i++) {
-            const y1 = yStart + (i * JOINT_INCREMENT);
-            const y2 = yStart + ((i + 1) * JOINT_INCREMENT);
-            const isCutIn = i % 2 === 0; // alternate between cut in and cut out
-            const x = xStart + (isCutIn ? floor.materialThickness : 0); // cut in at
-            lines.push([
-                [x, y1],
-                [x, y2]
-            ]);
-            if( y2 < yEnd) {
-                lines.push([
-                    [x, y2],
-                    [x + (isCutIn ? -floor.materialThickness : floor.materialThickness), y2]
-                ]);
-            }
-            if( y1 === yStart && isCutIn) {
-                lines.push([
-                    [x, y2],
-                    [x - floor.materialThickness, y2]
-                ]);
-            }
-        }
-    }
-
-    floor.walls.forEach(wall => {
+    const basePolygon = new paper.Path();
+    let floorPolygon: paper.PathItem | undefined = undefined;
+    const jointTabs: paper.Path[] = [];
+    const { materialThickness } = floor || { materialThickness: 0 };
+    floor.walls.forEach((wall, idx) => {
         const { point1, point2 } = wall;
-        const x1 = point1[0];
-        const y1 = point1[1];
-        const x2 = point2[0];
-        const y2 = point2[1];
-
-        if( x1 === x2 ){
-            // vertical wall
-            verticalLine(
-                y1 > y2 ? y2 : y1, 
-                y1 > y2 ? y1 : y2, 
-                x1
-            );
-        } else if( y1 === y2 ) {
-            // horizontal wall
-            horizontalLine(
-                x1 > x2 ? x2 : x1, 
-                x1 > x2 ? x1 : x2, 
-                y1
-            );
-        } else {
-            // diagonal wall
-            console.warn("Diagonal walls are not supported yet.");
+        if (idx === 0) {
+            const p1 = new paper.Point(point1[0], point1[1]);
+            basePolygon.add(p1);
         }
+        const p2 = new paper.Point(point2[0], point2[1]);
+        basePolygon.add(p2);
+
+        const wallWidth = Math.sqrt(
+            Math.pow(point2[0] - point1[0], 2) +
+                Math.pow(point2[1] - point1[1], 2),
+        );
+        const unitVector = new paper.Point(
+            (point2[0] - point1[0]) / wallWidth,
+            (point2[1] - point1[1]) / wallWidth,
+        );
+        const orthoClockVector = new paper.Point(unitVector.y, -unitVector.x);
+        const orthoCounterVector = new paper.Point(-unitVector.y, unitVector.x);
+        for (
+            let tabCrawler = 0;
+            tabCrawler * JOINT_INCREMENT < wallWidth;
+            tabCrawler += 2
+        ) {
+            const x =
+                wall.point1[0] + tabCrawler * JOINT_INCREMENT * unitVector.x;
+            const y =
+                wall.point1[1] + tabCrawler * JOINT_INCREMENT * unitVector.y;
+            const jointTab = new paper.Path();
+            jointTab.add(new paper.Point(x, y));
+            jointTab.add(
+                new paper.Point(
+                    x + orthoClockVector.x * materialThickness,
+                    y + orthoClockVector.y * materialThickness,
+                ),
+            );
+            jointTab.add(
+                // up the length of the joint
+                new paper.Point(
+                    x +
+                        orthoClockVector.x * materialThickness +
+                        unitVector.x * JOINT_INCREMENT,
+                    y +
+                        orthoClockVector.y * materialThickness +
+                        unitVector.y * JOINT_INCREMENT,
+                ),
+            );
+            jointTab.add(
+                // the far cap of the joint rectangle
+                new paper.Point(
+                    x +
+                        unitVector.x * JOINT_INCREMENT +
+                        orthoCounterVector.x * materialThickness,
+                    y +
+                        unitVector.y * JOINT_INCREMENT +
+                        orthoCounterVector.y * materialThickness,
+                ),
+            );
+            jointTab.add(
+                // down the length of the joint
+                new paper.Point(
+                    x + orthoCounterVector.x * materialThickness,
+                    y + orthoCounterVector.y * materialThickness,
+                ),
+            );
+            jointTab.add(
+                // back to the start point
+                new paper.Point(x, y),
+            );
+            jointTabs.push(jointTab);
+        }
+        floorPolygon = basePolygon.clone();
+        jointTabs.forEach((tab) => {
+            floorPolygon = floorPolygon?.subtract(tab);
+        });
     });
 </script>
 
-
 <g transform={`translate(${hitbox.origin[0]}, ${hitbox.origin[1]})`}>
-    {#each lines as pointPair, index}
-        <line x1={pointPair[0][0]} y1={pointPair[0][1]} 
-            x2={pointPair[1][0]} y2={pointPair[1][1]} 
-            stroke="orange" stroke-width="1" />
-    {/each}
+    {#if floorPolygon}
+        <path
+            d={floorPolygon.pathData}
+            fill="none"
+            stroke="orange"
+            stroke-width="1"
+        />
+    {/if}
 </g>
