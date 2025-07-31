@@ -18,7 +18,9 @@ export interface Floor {
   name: string;
   wallHeight: number; // in mm
   materialThickness: number; // in mm
+  jointTabLength: number; // in mm
   walls: Wall[];
+  internalWalls: Wall[];
   pageWidth: number; // in mm
   pageHeight: number; // in mm
 }
@@ -29,4 +31,5 @@ export interface Hitbox {
   height: number; // in mm
   panel: Wall | Floor;
   type: 'wall' | 'floor';
+  index?: number; // optional index for walls, used for rendering
 }

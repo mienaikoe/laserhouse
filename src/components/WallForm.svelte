@@ -4,13 +4,13 @@
   import type { Floor, Wall } from "$lib/types.js";
 
   let props = $props();
-  const { index } = props;
+  const { index, internal } = props;
 
   let getFloor = getContext("floor") as () => Floor;
   let setFloor = getContext("setFloor") as (floor: Floor) => void;
   let floor = getFloor();
 
-  const wall = floor.walls[index];
+  const wall = internal ? floor.internalWalls[index] : floor.walls[index];
 
   let point1X = $state(wall.point1[0]);
   let point1Y = $state(wall.point1[1]);
@@ -20,23 +20,38 @@
   let features = $state(wall.features);
 
   $effect(() => {
-    const newWalls = [...floor.walls];
-    const newWall: Wall = {
-      point1: [Number(point1X || 0), Number(point1Y || 0)],
-      point2: [Number(point2X || 0), Number(point2Y || 0)],
-      features: features,
-    };
+    let newWalls: Wall[], newInternalWalls: Wall[];
+    if (internal) {
+      newInternalWalls = [...floor.internalWalls];
+      const newWall: Wall = {
+        point1: [Number(point1X || 0), Number(point1Y || 0)],
+        point2: [Number(point2X || 0), Number(point2Y || 0)],
+        features: features,
+      };
+      newInternalWalls[index] = newWall;
+      newWalls = floor.walls; // Keep existing walls unchanged
+    } else {
+      newWalls = [...floor.walls];
+      const newWall: Wall = {
+        point1: [Number(point1X || 0), Number(point1Y || 0)],
+        point2: [Number(point2X || 0), Number(point2Y || 0)],
+        features: features,
+      };
+      newWalls[index] = newWall;
+      newInternalWalls = floor.internalWalls; // Keep existing internal walls unchanged
+    }
 
-    newWalls[index] = newWall;
     const newFloor: Floor = {
       ...floor,
       walls: newWalls,
+      internalWalls: newInternalWalls,
     };
-    if (JSON.stringify(newFloor) !== JSON.stringify(floor)) {
+    if (
+      JSON.stringify(newWalls) !== JSON.stringify(floor.walls) ||
+      JSON.stringify(newInternalWalls) !== JSON.stringify(floor.internalWalls)
+    ) {
       setFloor(newFloor);
     }
-
-    console.log("Wall updated:", newWall);
   });
 
   const addFeature = () => {
@@ -61,7 +76,7 @@
 
 <div>
   <div class="flex flex-row items-center justify-between">
-    <h4 class="text-lg">Wall {index + 1}</h4>
+    <h4 class="text-lg">{internal ? "Internal" : ""} Wall {index + 1}</h4>
     <button
       class="cursor-pointer bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600"
       onclick={removeWall}
@@ -79,6 +94,7 @@
           id={`wall-${index}-x`}
           bind:value={point1X}
           placeholder="x"
+          max={floor.pageWidth || 0}
         />
       </div>
       <div class="flex flex-col w-[50%]">
@@ -88,6 +104,7 @@
           id={`wall-${index}-y`}
           bind:value={point1Y}
           placeholder="y"
+          max={floor.pageHeight || 0}
         />
       </div>
     </div>
@@ -99,6 +116,7 @@
           id={`wall-${index}-x`}
           bind:value={point2X}
           placeholder="x"
+          max={floor.pageWidth || 0}
         />
       </div>
       <div class="flex flex-col w-[50%]">
@@ -108,6 +126,7 @@
           id={`wall-${index}-y`}
           bind:value={point2Y}
           placeholder="y"
+          max={floor.pageHeight || 0}
         />
       </div>
     </div>

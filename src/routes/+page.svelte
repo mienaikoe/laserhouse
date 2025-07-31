@@ -10,7 +10,8 @@
   let floor: Floor = $state({
     name: "Main Floor",
     wallHeight: 120,
-    materialThickness: 10,
+    materialThickness: 3,
+    jointTabLength: 10, // default to 10mm
     pageWidth: 300,
     pageHeight: 300,
     walls: [
@@ -82,12 +83,17 @@
       height: maxY,
       panel: floor,
       type: "floor",
+      index: -1,
     });
     runningOrigin = [maxX + (floor?.materialThickness || 0), 0];
     maxRenderRowHeight = maxY;
 
     // wall panels
-    for (const wall of floor?.walls || []) {
+    const combinedWalls = [
+      ...(floor?.walls || []),
+      ...(floor?.internalWalls || []),
+    ];
+    for (const wall of combinedWalls) {
       // pythagorean theorem to calculate the width of the wall
       const wallWidth =
         Math.sqrt(
@@ -107,12 +113,17 @@
         runningRow++;
       }
 
+      const isInternal = floor?.internalWalls?.includes(wall);
+
       rowedHitboxes[runningRow].push({
         origin: [...runningOrigin],
         width: wallWidth,
         height: floor?.wallHeight || 0,
         panel: wall,
         type: "wall",
+        index: isInternal
+          ? floor?.internalWalls.indexOf(wall)
+          : floor?.walls.indexOf(wall),
       });
 
       runningOrigin[0] += wallWidth + (floor?.materialThickness || 0);

@@ -5,10 +5,10 @@
 
     const { hitbox, wall } = $props();
 
+    const { index: wallIndex, isInternal } = hitbox;
+
     let getFloor = getContext("floor") as () => Floor;
     let floor = getFloor();
-
-    const JOINT_INCREMENT = 10; // mm
 
     const width = hitbox.width;
     const height = hitbox.height;
@@ -40,11 +40,19 @@
         const orthoCounterVector = new paper.Point(-unitVector.y, unitVector.x);
         for (
             let tabCrawler = 0;
-            tabCrawler * JOINT_INCREMENT < wallWidth;
+            tabCrawler * floor.jointTabLength < wallWidth;
             tabCrawler += 2
         ) {
-            const x = point1.x + tabCrawler * JOINT_INCREMENT * unitVector.x;
-            const y = point1.y + tabCrawler * JOINT_INCREMENT * unitVector.y;
+            const x =
+                point1.x + tabCrawler * floor.jointTabLength * unitVector.x;
+            const y =
+                point1.y + tabCrawler * floor.jointTabLength * unitVector.y;
+
+            const distanceTravled = tabCrawler * floor.jointTabLength;
+            const tabLength = Math.min(
+                floor.jointTabLength,
+                wallWidth - distanceTravled,
+            );
 
             const jointTab = new paper.Path();
             jointTab.add(new paper.Point(x, y));
@@ -61,13 +69,13 @@
                         0,
                         x +
                             orthoClockVector.x * materialThickness +
-                            unitVector.x * JOINT_INCREMENT,
+                            unitVector.x * tabLength,
                     ),
                     Math.max(
                         0,
                         y +
                             orthoClockVector.y * materialThickness +
-                            unitVector.y * JOINT_INCREMENT,
+                            unitVector.y * tabLength,
                     ),
                 ),
             );
@@ -77,13 +85,13 @@
                     Math.max(
                         0,
                         x +
-                            unitVector.x * JOINT_INCREMENT +
+                            unitVector.x * tabLength +
                             orthoCounterVector.x * materialThickness,
                     ),
                     Math.max(
                         0,
                         y +
-                            unitVector.y * JOINT_INCREMENT +
+                            unitVector.y * tabLength +
                             orthoCounterVector.y * materialThickness,
                     ),
                 ),
@@ -117,6 +125,16 @@
             stroke="black"
             stroke-width="1"
         />
+        <text
+            x={width / 2}
+            y={height / 2}
+            fill="red"
+            font-size="12"
+            text-anchor="middle"
+            alignment-baseline="central"
+        >
+            {wallIndex + 1}
+        </text>
     {/if}
     {#if hitbox.panel?.features}
         {#each hitbox.panel.features as feature}

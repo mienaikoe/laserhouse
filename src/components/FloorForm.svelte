@@ -12,7 +12,9 @@
   let pageHeight = $state(floor?.pageHeight);
   let wallHeight = $state(floor?.wallHeight);
   let materialThickness = $state(floor?.materialThickness);
+  let jointTabLength = $state(floor?.jointTabLength || 10); // default to 10mm
   let walls = $state(floor?.walls);
+  let internalWalls = $state(floor?.internalWalls || []);
 
   $effect(() => {
     const newFloor: Floor = {
@@ -22,7 +24,13 @@
       pageHeight: Number(pageHeight || 0),
       wallHeight: Number(wallHeight || 0),
       materialThickness: Number(materialThickness || 0),
+      jointTabLength: Number(jointTabLength || 10),
       walls: walls.map((wall) => ({
+        ...wall,
+        point1: [Number(wall.point1[0]), Number(wall.point1[1])],
+        point2: [Number(wall.point2[0]), Number(wall.point2[1])],
+      })),
+      internalWalls: internalWalls.map((wall) => ({
         ...wall,
         point1: [Number(wall.point1[0]), Number(wall.point1[1])],
         point2: [Number(wall.point2[0]), Number(wall.point2[1])],
@@ -91,13 +99,18 @@
       />
     </div>
 
+    <div>
+      <label for="joint-tab-length" class="block mb-2 text-sm font-medium">
+        Joint Tab Length (mm)
+      </label>
+      <input type="number" bind:value={jointTabLength} id="joint-tab-length" />
+    </div>
+
     <div class="border-b-1 border-gray-300 my-4"></div>
 
-    {#key floor?.walls}
-      {#each floor?.walls as wall, index}
-        <WallForm {wall} {index} />
-      {/each}
-    {/key}
+    {#each floor?.walls as wall, index}
+      <WallForm {wall} {index} />
+    {/each}
 
     <button
       class="mt-2 py-1 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
@@ -110,6 +123,25 @@
       }}
     >
       + Add Wall
+    </button>
+
+    <div class="border-b-1 border-gray-300 my-4"></div>
+
+    {#each floor?.internalWalls as wall, index}
+      <WallForm {wall} {index} internal={true} />
+    {/each}
+
+    <button
+      class="mt-2 py-1 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 cursor-pointer"
+      onclick={() => {
+        internalWalls.push({
+          point1: [0, 0],
+          point2: [100, 0],
+          features: [],
+        });
+      }}
+    >
+      + Add Internal Wall
     </button>
   </div>
 </div>
